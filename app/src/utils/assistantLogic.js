@@ -4,7 +4,7 @@ export const processAssistantQuery = async (query, userContext) => {
 
   const lowerQuery = query.toLowerCase();
   
-  if (lowerQuery.includes('restroom') || lowerQuery.includes('bathroom') || lowerQuery.includes('toilet')) {
+  if (lowerQuery.includes('restroom') || lowerQuery.includes('bathroom') || lowerQuery.includes('toilet') || lowerQuery.includes('near') || lowerQuery.includes('neart')) {
     return {
       text: `Based on your location in Section ${userContext.section}, the nearest restroom is in Section ${Number(userContext.section) + 1}. However, it currently has a 15-minute wait. I recommend the restroom in Section ${Number(userContext.section) - 2}, which is a 2-minute further walk but has zero wait time!`,
       type: 'text'
@@ -34,8 +34,30 @@ export const processAssistantQuery = async (query, userContext) => {
     };
   }
 
+  if (lowerQuery.includes('merch') || lowerQuery.includes('shirt') || lowerQuery.includes('buy')) {
+    return {
+      text: "The main merchandise store at Gate A is extremely busy right now. I suggest visiting the pop-up stall in Section 202, which currently has very few people waiting. It's a 3-minute walk from your current location.",
+      type: 'text'
+    };
+  }
+
+  if (lowerQuery.includes('park') || lowerQuery.includes('car') || lowerQuery.includes('leave')) {
+    return {
+      text: "To avoid the post-event traffic congestion, I recommend leaving from the North Exit and taking the shuttle to the remote parking lot. The main parking structure is currently reporting a severe bottleneck.",
+      type: 'map',
+      mapQuery: "North+Stadium+Exit+Parking"
+    };
+  }
+
+  if (lowerQuery.includes('help') || lowerQuery.includes('emergency') || lowerQuery.includes('security')) {
+    return {
+      text: "Security assistance dispatched to your location (Section 104). The nearest emergency exit is immediately to your right. Please stay calm.",
+      type: 'text'
+    };
+  }
+
   return {
-    text: "I'm the VenueFlow AI Concierge. I can help you find uncrowded restrooms, short food lines, or show you the event schedule. What do you need?",
+    text: "I'm the VenueFlow AI Concierge. I can help you find uncrowded restrooms, short food lines, merchandise stalls, or parking directions. What do you need?",
     type: 'text'
   };
 };

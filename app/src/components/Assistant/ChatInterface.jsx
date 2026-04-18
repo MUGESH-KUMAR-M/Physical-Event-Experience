@@ -15,7 +15,12 @@ const ChatInterface = () => {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use setTimeout to ensure DOM is fully painted before calculating scrollHeight
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 50);
     }
   }, [messages, isTyping]);
 
@@ -58,8 +63,13 @@ const ChatInterface = () => {
                 <div className="map-embed">
                   <iframe 
                     title="Google Map Simulation"
-                    src={`https://www.google.com/maps?q=${msg.mapQuery}&output=embed`}
+                    src={`https://maps.google.com/maps?width=100%25&height=600&hl=en&q=${msg.mapQuery}&t=&z=15&ie=UTF8&iwloc=B&output=embed`}
                     loading="lazy"
+                    onLoad={() => {
+                       setTimeout(() => {
+                         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                       }, 100);
+                    }}
                   ></iframe>
                 </div>
               )}
