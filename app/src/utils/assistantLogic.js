@@ -1,8 +1,56 @@
+/**
+ * @module assistantLogic
+ * @description Context-aware decision engine for the VenueFlow AI Concierge.
+ * Processes natural language queries and returns structured venue guidance
+ * based on simulated real-time crowd, scheduling, and amenity data.
+ */
+
+/**
+ * Sanitizes user input to prevent XSS attacks.
+ * Strips HTML tags and trims whitespace.
+ * @param {string} input - Raw user input string
+ * @returns {string} Sanitized string
+ */
+export const sanitizeInput = (input) => {
+  if (typeof input !== 'string') return '';
+  return input
+    .replace(/<script[^>]*>.*?<\/script>/gis, '') // Remove script blocks and content
+    .replace(/<[^>]*>/g, '')                        // Strip remaining HTML tags
+    .replace(/[<>'"]/g, '')                         // Strip dangerous characters
+    .trim()
+    .slice(0, 500);                                 // Cap at 500 chars
+};
+
+/**
+ * Maps crowd density level to emoji indicator.
+ * @param {'low'|'moderate'|'high'} level - Crowd density level
+ * @returns {string} Emoji string
+ */
+export const densityBadge = (level) => {
+  const map = { low: '🟢', moderate: '🟡', high: '🔴' };
+  return map[level] ?? '⚪';
+};
+
+/**
+ * Core AI query processor. Simulates a Gemini-backed NLP engine
+ * that classifies attendee intent and returns context-aware responses.
+ *
+ * @param {string} query - Raw natural language query from attendee
+ * @param {{ section: string, time: Date }} userContext - Attendee's current context
+ * @returns {Promise<{ text: string, type: 'text'|'map', mapQuery?: string }>}
+ */
 export const processAssistantQuery = async (query, userContext) => {
-  // Simulate AI processing delay
+  // Sanitize before processing
+  const safeQuery = sanitizeInput(query);
+  if (!safeQuery) {
+    return { text: 'Please enter a valid question.', type: 'text' };
+  }
+
+  // Simulate AI processing delay (800ms)
   await new Promise(resolve => setTimeout(resolve, 800));
 
-  const lowerQuery = query.toLowerCase();
+  const lowerQuery = safeQuery.toLowerCase();
+  const section = parseInt(userContext?.section ?? '104', 10);
 
   // --- CROWD MOVEMENT ---
   if (
@@ -10,15 +58,16 @@ export const processAssistantQuery = async (query, userContext) => {
     lowerQuery.includes('congestion') ||
     lowerQuery.includes('busy') ||
     lowerQuery.includes('packed') ||
-    lowerQuery.includes('heatmap')
+    lowerQuery.includes('heatmap') ||
+    lowerQuery.includes('density')
   ) {
     return {
-      text: `Live Crowd Density Update for Section ${userContext.section}:\n🔴 Gate A (Main) — VERY CROWDED (avoid)\n🟡 Gate C (East) — MODERATE congestion\n🟢 Gate F (North) — LOW density — RECOMMENDED entry/exit point. I suggest moving there now to save 15–20 minutes.`,
+      text: `Live Crowd Density Update for Section ${section}:\n🔴 Gate A (Main) — VERY CROWDED (avoid)\n🟡 Gate C (East) — MODERATE congestion\n🟢 Gate F (North) — LOW density — RECOMMENDED entry/exit. Move there now to save 15–20 minutes.`,
       type: 'text'
     };
   }
 
-  // --- RESTROOMS (precise keywords only — no greedy 'near') ---
+  // --- RESTROOMS ---
   if (
     lowerQuery.includes('restroom') ||
     lowerQuery.includes('bathroom') ||
@@ -27,7 +76,7 @@ export const processAssistantQuery = async (query, userContext) => {
     lowerQuery.includes('nearest restroom')
   ) {
     return {
-      text: `📍 Based on your location in Section ${userContext.section}:\n• Section ${Number(userContext.section) + 1} restroom — 🔴 15-min wait (avoid)\n• Section ${Number(userContext.section) - 2} restroom — 🟢 0-min wait (2 min walk)\n\nI recommend heading to Section ${Number(userContext.section) - 2} to avoid the queue entirely!`,
+      text: `📍 Restrooms near Section ${section}:\n• Section ${section + 1} — 🔴 15-min wait (avoid)\n• Section ${section - 2} — 🟢 0-min wait (2 min walk)\n\nRecommendation: Go to Section ${section - 2} for zero queue!`,
       type: 'text'
     };
   }
@@ -43,24 +92,23 @@ export const processAssistantQuery = async (query, userContext) => {
     lowerQuery.includes('no wait')
   ) {
     return {
-      text: "🍔 Main concession (Level 1) — 🔴 ~20 min wait. \n\nFor zero wait, pre-order from 'FastBite Express' at Gate C and pick up in 5 min! Here's how to get there:",
+      text: "🍔 Main concession (Level 1) — 🔴 ~20 min wait.\n\nFor zero wait: pre-order from 'FastBite Express' at Gate C, pick up in 5 min! Here's how to get there:",
       type: 'map',
-      mapQuery: "FastBite+Express+Gate+C"
+      mapQuery: 'FastBite+Express+Gate+C+Stadium'
     };
   }
 
-  // --- EVENT SCHEDULE (precise: no 'time' catch-all) ---
+  // --- EVENT SCHEDULE ---
   if (
     lowerQuery.includes('schedule') ||
-    lowerQuery.includes('event') ||
     lowerQuery.includes('halftime') ||
     lowerQuery.includes('lineup') ||
     lowerQuery.includes('next match') ||
-    lowerQuery.includes('what\'s next') ||
-    lowerQuery.includes('show me the schedule')
+    lowerQuery.includes('show me the schedule') ||
+    lowerQuery.includes('event')
   ) {
     return {
-      text: "📅 Live Event Schedule (via Google Calendar):\n• Halftime Show — starts in 14 mins\n• 2nd Half Kickoff — in 29 mins\n• Award Ceremony — in ~110 mins\n\n💡 Tip: Team store crowd density is currently LOW. Perfect time to grab merch before everyone else rushes in after halftime!",
+      text: "📅 Live Event Schedule:\n• Halftime Show — starts in 14 mins\n• 2nd Half Kickoff — in 29 mins\n• Award Ceremony — ~110 mins\n\n💡 Tip: Team store crowd density is LOW right now — perfect time for merch!",
       type: 'text'
     };
   }
@@ -75,9 +123,9 @@ export const processAssistantQuery = async (query, userContext) => {
     lowerQuery.includes('show me the venue')
   ) {
     return {
-      text: "🗺️ Here is the safest and least crowded route to your destination via Google Maps: (Green path avoids the congested Gate A area)",
+      text: "🗺️ Safest and least crowded route to your destination (Green path avoids congested Gate A area):",
       type: 'map',
-      mapQuery: "Main+Event+Stadium+Entrance"
+      mapQuery: 'Main+Event+Stadium+Entrance'
     };
   }
 
@@ -91,7 +139,7 @@ export const processAssistantQuery = async (query, userContext) => {
     lowerQuery.includes('shop')
   ) {
     return {
-      text: "🛍️ Main merch store (Gate A) — 🔴 Very busy right now.\n\nPop-up stall in Section 202 — 🟢 Almost empty! It's only a 3-min walk from Section 104. Grab your gear without the wait!",
+      text: "🛍️ Main merch store (Gate A) — 🔴 Very busy.\n\nPop-up stall in Section 202 — 🟢 Almost empty! Only a 3-min walk from Section 104.",
       type: 'text'
     };
   }
@@ -106,9 +154,9 @@ export const processAssistantQuery = async (query, userContext) => {
     lowerQuery.includes('go home')
   ) {
     return {
-      text: "🚗 Post-event traffic alert: Main parking structure reporting severe bottleneck. \n\n✅ Recommended: Exit from the North Gate → take the free shuttle to the remote parking lot P4. Estimated 10 min vs. 45 min if you use the main exit. Here's the route:",
+      text: "🚗 Post-event traffic alert: Main structure — severe bottleneck.\n\n✅ Take the North Gate → free shuttle to P4 (10 min vs. 45 min via main exit).",
       type: 'map',
-      mapQuery: "North+Stadium+Exit+Parking"
+      mapQuery: 'North+Stadium+Exit+Parking'
     };
   }
 
@@ -122,14 +170,14 @@ export const processAssistantQuery = async (query, userContext) => {
     lowerQuery.includes('medical')
   ) {
     return {
-      text: "🚨 ALERT: Security team notified at your location (Section 104).\n\n• Nearest emergency exit: immediately to your right (green sign)\n• First Aid: Gate B, Level 1\n• Security Desk: Gate A main entrance\n\nPlease stay calm. Help is on the way.",
+      text: "🚨 Security team notified at Section 104.\n\n• Nearest exit: immediately to your right (green sign)\n• First Aid: Gate B, Level 1\n• Security Desk: Gate A main entrance\n\nStay calm — help is on the way.",
       type: 'text'
     };
   }
 
   // --- DEFAULT FALLBACK ---
   return {
-    text: "👋 I'm VenueFlow — your AI Event Concierge.\n\nI can help you with:\n🚻 Find uncrowded restrooms\n🍔 Shortest food & drink queues\n🗺️ Venue navigation & maps\n📅 Live event schedule\n🛍️ Merchandise with no wait\n🚗 Smart parking & exit routes\n🚨 Emergency & security\n\nWhat do you need?",
+    text: "👋 I'm VenueFlow — your AI Event Concierge.\n\nI can help you with:\n🚻 Uncrowded restrooms\n🍔 Shortest food & drink queues\n🗺️ Venue navigation & maps\n📅 Live event schedule\n🛍️ Merchandise with no wait\n🚗 Smart parking & exit\n🚨 Emergency & security\n\nWhat do you need?",
     type: 'text'
   };
 };
