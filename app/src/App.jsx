@@ -13,7 +13,7 @@ function App() {
         </button>
       </header>
       
-      <main style={{ display:'flex', flexDirection:'column', flex:1, overflow:'hidden' }}>
+      <main style={{ display:'flex', flexDirection:'column', flex:1, overflow:'hidden', minHeight:0 }}>
         <ChatInterface />
       </main>
     </div>
