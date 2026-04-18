@@ -1,9 +1,13 @@
 /**
  * @module assistantLogic
  * @description Context-aware decision engine for the VenueFlow AI Concierge.
+ * Primary: Google Gemini 1.5 Flash (via @google/generative-ai SDK)
+ * Fallback: Rule-based intent classification engine
  * Processes natural language queries and returns structured venue guidance
  * based on simulated real-time crowd, scheduling, and amenity data.
  */
+
+import { callGeminiAPI } from '../services/geminiService';
 
 /**
  * Sanitizes user input to prevent XSS attacks.
@@ -32,8 +36,8 @@ export const densityBadge = (level) => {
 };
 
 /**
- * Core AI query processor. Simulates a Gemini-backed NLP engine
- * that classifies attendee intent and returns context-aware responses.
+ * Core AI query processor.
+ * Attempts Google Gemini AI first, falls back to rule-based engine if unavailable.
  *
  * @param {string} query - Raw natural language query from attendee
  * @param {{ section: string, time: Date }} userContext - Attendee's current context
@@ -46,7 +50,14 @@ export const processAssistantQuery = async (query, userContext) => {
     return { text: 'Please enter a valid question.', type: 'text' };
   }
 
-  // Simulate AI processing delay (800ms)
+  // ── Primary: Try Google Gemini AI ──────────────────────────────
+  const geminiResponse = await callGeminiAPI(safeQuery);
+  if (geminiResponse) {
+    return { text: geminiResponse, type: 'text' };
+  }
+
+  // ── Fallback: Rule-based engine ────────────────────────────────
+  // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 800));
 
   const lowerQuery = safeQuery.toLowerCase();
